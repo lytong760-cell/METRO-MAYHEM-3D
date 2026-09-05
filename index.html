@@ -169,9 +169,8 @@ h1.logo span{color:#ff2d78}h1.logo em{color:#21d4fd;font-style:normal;font-size:
   <button class="btn" id="btnQuitO">MAIN MENU</button>
 </div></div>
 <script>
-/* pre-module error catcher so any failure is visible */
 window.addEventListener('error',function(e){var d=document.getElementById('errBox');
- if(d){d.style.display='block';d.textContent='ERROR: '+e.message+(e.filename?' @'+e.filename+'':'')+(e.lineno?':'+e.lineno:'');}},true);
+ if(d){d.style.display='block';d.textContent='ERROR: '+e.message+(e.filename?' @'+e.filename:'')+(e.lineno?':'+e.lineno:'');}},true);
 window.addEventListener('unhandledrejection',function(e){var d=document.getElementById('errBox');
  if(d){d.style.display='block';d.textContent='PROMISE ERROR: '+(e.reason&&e.reason.message?e.reason.message:e.reason);}});
 </script>
@@ -185,7 +184,7 @@ import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
 import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
 import {AfterimagePass} from 'three/addons/postprocessing/AfterimagePass.js';
 import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
-/* ---------- A. config / utils / state ---------- */
+/* ---------- A. config / utils / state (audio declared FIRST so it can never be in TDZ) ---------- */
 const CELL=72,NX=14,NZ=10,ROADW=16,SIDEW=5,LANE_OFF=4,CURB=0.35,DAY_LEN=170;
 const RX=[];for(let i=0;i<=NX;i++)RX.push((i-NX/2)*CELL);
 const RZ=[];for(let j=0;j<=NZ;j++)RZ.push((j-NZ/2)*CELL);
@@ -193,6 +192,7 @@ const EXT_X=NX*CELL+ROADW,EXT_Z=NZ*CELL+ROADW;
 const RIVER_I=10,RIV_X0=RX[RIVER_I]+ROADW/2-2,RIV_X1=RX[RIVER_I+1]-ROADW/2+2,SEA_X=RX[NX]+12;
 const IS_MOBILE=('ontouchstart' in window)||navigator.maxTouchPoints>0;
 const CFG={N_NPC:IS_MOBILE?14:22,N_PED:IS_MOBILE?22:36};
+const audio={ctx:null,started:false};
 let gameState='menu',simTime=0,dayT=0.27,runDist=0,runTime=0,health=100,wanted=0,wantedCooldown=0,dmgCooldown=0,menuAngle=0;
 let money=150,onFoot=false,shopOpen=false,curShop=null,inInterior=null;
 let firstPerson=false,viewYaw=0,viewPitch=0.15,flashOn=false,smokeT=0,smokeTick=0;
@@ -208,7 +208,7 @@ function lerpAngle(a,b,t){let d=((b-a+Math.PI*3)%(Math.PI*2))-Math.PI;return a+d
 const fmtTime=s=>{s=Math.floor(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
 const show=el=>el.classList.remove('hidden'),hide=el=>el.classList.add('hidden'),$=id=>document.getElementById(id);
 const TP=new THREE.Vector3(),TQ=new THREE.Quaternion(),TE=new THREE.Euler(),TS=new THREE.Vector3(),TC=new THREE.Color(),TM=new THREE.Matrix4();
-/* ---------- B. renderer / scene / camera / lights ---------- */
+/* ---------- B. renderer / scene ---------- */
 const renderer=new THREE.WebGLRenderer({canvas:$('game'),antialias:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,IS_MOBILE?1.5:1.8));
 renderer.setSize(innerWidth,innerHeight);
@@ -251,7 +251,7 @@ hands.add(hl,hr);
 const cig=new THREE.Mesh(new THREE.BoxGeometry(0.035,0.035,0.22),new THREE.MeshStandardMaterial({color:0xf5f5f0}));
 cig.position.set(0.47,-0.42,-1.02);cig.name='cig';hands.add(cig);}
 hands.visible=false;camera.add(hands);
-/* ---------- C. input state + ALL UI wiring (attached early so menu always works) ---------- */
+/* ---------- C. input + UI wiring ---------- */
 const keys={gas:false,brake:false,left:false,right:false,hb:false,nos:false};
 const touch={gas:false,brake:false,left:false,right:false,hb:false,nos:false};
 const input={get gas(){return keys.gas||touch.gas},get brake(){return keys.brake||touch.brake},get left(){return keys.left||touch.left},get right(){return keys.right||touch.right},get hb(){return keys.hb||touch.hb},get nos(){return keys.nos||touch.nos}};
@@ -262,7 +262,7 @@ addEventListener('keydown',e=>{
  if(e.code==='KeyF')doPunch();
  if(e.code==='KeyG')doKick();
  if(e.code==='KeyP')togglePhone();
- if(e.code==='KeyV'){firstPerson=!firstPerson;viewYaw=0;viewPitch=0.15;}
+ if(e.code==='KeyV'){firstPerson=!firstPerson;viewYaw=0;viewPitch=0.15}
  if(e.code==='KeyL'){flashOn=!flashOn;toast(flashOn?'Flashlight ON':'Flashlight OFF')}
  if(e.code==='KeyH'&&gameState==='playing')horn(400);
  if(e.code==='Escape'){if(shopOpen)closeShop();else if(phoneOpen)togglePhone();
@@ -282,8 +282,8 @@ if(IS_MOBILE)$('touchUI').classList.add('on');
 function bindTouch(id,prop){const el=$(id);if(!el)return;
  el.addEventListener('pointerdown',e=>{e.preventDefault();touch[prop]=true});
  el.addEventListener('pointerup',e=>{e.preventDefault();touch[prop]=false});
- el.addEventListener('pointercancel',e=>{touch[prop]=false});
- el.addEventListener('pointerleave',e=>{touch[prop]=false});}
+ el.addEventListener('pointercancel',()=>{touch[prop]=false});
+ el.addEventListener('pointerleave',()=>{touch[prop]=false});}
 bindTouch('tLeft','left');bindTouch('tRight','right');bindTouch('tGas','gas');
 bindTouch('tBrake','brake');bindTouch('tDrift','hb');bindTouch('tNitro','nos');
 $('tHorn').addEventListener('pointerdown',e=>{e.preventDefault();if(gameState==='playing')horn(400)});
@@ -316,7 +316,7 @@ $('appMechanic').addEventListener('click',()=>{
  v.group.position.set(p.x,0,p.z);v.parked=true;
  toast('Mechanic delivered a car nearby');updateHUD()});
 refreshBestLine();
-/* ---------- D. world generation ---------- */
+/* ---------- D. world ---------- */
 function terrainH(x,z){
  const inCity=Math.abs(x)<EXT_X/2+20&&Math.abs(z)<EXT_Z/2+20;
  if(x>RIV_X0-6&&x<RIV_X1+6&&Math.abs(z)<EXT_Z/2+300)return -2.6;
@@ -326,7 +326,7 @@ function terrainH(x,z){
  const t=Math.max(0,d-edge),mask=clamp(t/70,0,1);
  const hills=(Math.sin(x*0.013)+Math.cos(z*0.011))*3.5+Math.sin(x*0.031+z*0.017)*2.2;
  const mount=Math.pow(clamp(t/300,0,1),1.6)*110*(0.65+0.35*Math.sin(x*0.008+z*0.006));
- return hills*mask*clamp(t/160,0,1)+mount-0.12;}
+ return hills*mask*clamp(t/160,0,1)+mount-0.12}
 function onBridge(z){for(const rz of RZ)if(Math.abs(z-rz)<ROADW/2+2)return true;return false}
 function inWaterAt(x,z){
  if(x>RIV_X0+2&&x<RIV_X1-2&&!onBridge(z))return true;
@@ -504,7 +504,7 @@ for(let i=0;i<inds.length;i++)tlIndicatorMesh.setColorAt(i,TL_COL.g);
 if(tlIndicatorMesh.instanceColor)tlIndicatorMesh.instanceColor.needsUpdate=true}
 function tlState(t,parity){const m=(t+parity*(TL_PERIOD/2))%TL_PERIOD;
  if(m<7)return['g','r'];if(m<8.5)return['y','r'];if(m<15.5)return['r','g'];return['r','y']}
-/* shops + interiors */
+/* shops + interiors — FIXED: box() takes 7 args and uses curG */
 const SHOPS=[
  {name:'AMMU-NATION',kind:'weapons',color:0xff2d78,x:RX[8]-ROADW/2-2.5,z:RZ[5]+16,ry:-Math.PI/2},
  {name:'COFFEE HOUSE',kind:'coffee',color:0xffb400,x:RX[6]+ROADW/2+2.5,z:RZ[5]-16,ry:Math.PI/2},
@@ -530,12 +530,14 @@ for(const s of SHOPS){
  g.traverse(o=>{if(o.isMesh)o.castShadow=true});
  world.add(g)}
 const interiorCache=new Map();let interiorSlot=0;
-function box(g,w,h,d,x,y,z,mat){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);g.add(m);return m}
+let curG=null;
+function box(w,h,d,x,y,z,mat){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);curG.add(m);return m}
 function buildInterior(def,kindOverride){
  const seed=def.seed!==undefined?def.seed:7;
  const rr=mulberry32(seed);
  const kind=kindOverride||def.kind;
  const g=new THREE.Group();
+ curG=g;
  const w=clamp((def.w||12)-2,9,18),d=clamp((def.d||12)-2,9,18),H=3.4;
  const schemes=[[0x8a7a5c,0xb8b0a0],[0x6b4a2f,0xd8c8a8],[0x3a3f46,0x9aa2ac],[0x4a3524,0xe8d8b8],[0x2a2430,0x8a8090]];
  const sch=schemes[(rr()*schemes.length)|0];
@@ -579,6 +581,7 @@ function buildInterior(def,kindOverride){
   const vh=new THREE.Mesh(new THREE.SphereGeometry(0.24,8,6),new THREE.MeshStandardMaterial({color:0xf1c9a5}));vh.position.y=1.75;
   vendor.add(vb,vh);vendor.position.set(0,0,-d/2+3.4);g.add(vendor);
   g.userData.vendor=vendor}
+ curG=null;
  return {group:g,w,d,kind}}
 function getInteriorFor(def,kindOverride){
  const key=(kindOverride||'')+'_'+def.seed;
@@ -625,18 +628,18 @@ debMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 for(let i=0;i<DEB;i++){debMesh.setMatrixAt(i,M0);debMesh.setColorAt(i,C0)}}
 scene.add(debMesh);const debColors=new THREE.Color();
 function spawnDebris(x,y,z,color,n){let s=0;
- for(let i=0;i<DEB&&s<n;i++){const d=debData[i];if(d.life>0)continue;s++;
-  d.life=R(1.2,2.2);d.p.set(x,y,z);d.v.set(R(-7,7),R(4,10),R(-7,7));d.rv.set(R(-9,9),R(-9,9),R(-9,9));d.s=R(0.6,1.6);
+ for(let i=0;i<DEB&&s<n;i++){const dd=debData[i];if(dd.life>0)continue;s++;
+  dd.life=R(1.2,2.2);dd.p.set(x,y,z);dd.v.set(R(-7,7),R(4,10),R(-7,7));dd.rv.set(R(-9,9),R(-9,9),R(-9,9));dd.s=R(0.6,1.6);
   debMesh.setColorAt(i,debColors.set(Math.random()<0.4?0x9fd8ff:color))}
  if(debMesh.instanceColor)debMesh.instanceColor.needsUpdate=true}
-function updateDebris(dt){for(let i=0;i<DEB;i++){const d=debData[i];
- if(d.life<=0){TM.makeScale(0,0,0);TM.setPosition(0,-60,0);debMesh.setMatrixAt(i,TM);continue}
- d.life-=dt;d.v.y-=22*dt;d.p.addScaledVector(d.v,dt);
- const gy=groundYAt(d.p.x,d.p.z)+0.1;
- if(d.p.y<gy){d.p.y=gy;d.v.y*=-0.35;d.v.x*=0.7;d.v.z*=0.7}
- d.r.x+=d.rv.x*dt;d.r.y+=d.rv.y*dt;d.r.z+=d.rv.z*dt;
- const sc=d.s*Math.min(1,d.life);TQ.setFromEuler(d.r);TS.set(sc,sc,sc);
- TM.compose(d.p,TQ,TS);debMesh.setMatrixAt(i,TM)}
+function updateDebris(dt){for(let i=0;i<DEB;i++){const dd=debData[i];
+ if(dd.life<=0){TM.makeScale(0,0,0);TM.setPosition(0,-60,0);debMesh.setMatrixAt(i,TM);continue}
+ dd.life-=dt;dd.v.y-=22*dt;dd.p.addScaledVector(dd.v,dt);
+ const gy=groundYAt(dd.p.x,dd.p.z)+0.1;
+ if(dd.p.y<gy){dd.p.y=gy;dd.v.y*=-0.35;dd.v.x*=0.7;dd.v.z*=0.7}
+ dd.r.x+=dd.rv.x*dt;dd.r.y+=dd.rv.y*dt;dd.r.z+=dd.rv.z*dt;
+ const sc=dd.s*Math.min(1,dd.life);TQ.setFromEuler(dd.r);TS.set(sc,sc,sc);
+ TM.compose(dd.p,TQ,TS);debMesh.setMatrixAt(i,TM)}
  debMesh.instanceMatrix.needsUpdate=true}
 const RAIN_N=IS_MOBILE?700:1400;
 const rainGeo=new THREE.BufferGeometry();const rainPos=new Float32Array(RAIN_N*3);
@@ -977,7 +980,6 @@ function updateSky(dt){
  waterTex.offset.x+=dt*0.02;waterTex.offset.y+=dt*0.013;
  roadMatV.color.set(0x2b2f38).lerp(new THREE.Color(0x1c2026),weather.intensity*0.8)}
 /* audio */
-const audio={ctx:null,started:false};
 function initAudio(){if(audio.started)return;
  try{const C=new (window.AudioContext||window.webkitAudioContext)();audio.ctx=C;
   const master=C.createGain();master.gain.value=0.5;master.connect(C.destination);audio.master=master;
@@ -1277,14 +1279,14 @@ function openShop(def){shopOpen=true;curShop=def;
  $('shopTitle').textContent=def.name;renderShop();show($('shopPanel'))}
 function closeShop(){shopOpen=false;curShop=null;hide($('shopPanel'))}
 function renderShop(){$('shopMoney').textContent='CASH: $'+money;
- const box=$('shopItems');box.innerHTML='';
+ const bxx=$('shopItems');bxx.innerHTML='';
  for(const it of SHOP_ITEMS[curShop.kind]){
   const owned=(it.id==='nitro'&&upgrades.nitro)||(it.id==='armor'&&upgrades.armor)||(it.id==='ram'&&upgrades.ram);
   const row=document.createElement('div');row.className='shopItem';
   row.innerHTML='<div><div class="nm">'+it.nm+'</div><div class="ds">'+it.ds+'</div></div><div class="pr">'+(owned?'OWNED':'$'+it.pr)+'</div>';
   const btn=document.createElement('button');btn.className='btn buy';
   btn.textContent=owned?'✓':'BUY';btn.disabled=owned||money<it.pr;
-  btn.onclick=()=>buyItem(it);row.appendChild(btn);box.appendChild(row)}}
+  btn.onclick=()=>buyItem(it);row.appendChild(btn);bxx.appendChild(row)}}
 function buyItem(it){if(money<it.pr)return;money-=it.pr;
  if(it.id==='nitro'){upgrades.nitro=true;nosFuel=100}
  if(it.id==='armor')upgrades.armor=true;
