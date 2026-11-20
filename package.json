@@ -1,0 +1,15 @@
+{
+  "name": "metro-mayhem-3d",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "node --check server.js && node --check js/state.js && node --check js/audio.js && node --check js/textures.js && node --check js/vehicles.js && node --check js/world.js && node --check js/actors.js && node --check js/weapons.js && node --check js/missions.js && node --check js/ui.js && node --check js/main.js",
+    "lint": "node --check server.js && node --check js/state.js && node --check js/audio.js && node --check js/textures.js && node --check js/vehicles.js && node --check js/world.js && node --check js/actors.js && node --check js/weapons.js && node --check js/missions.js && node --check js/ui.js && node --check js/main.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
